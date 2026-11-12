@@ -18,34 +18,32 @@ type retryReader struct {
 	err      error
 }
 
-
 type blockingRetryReader struct {
-    mu       sync.Mutex
-    attempts int
-    started  chan struct{}
+	mu       sync.Mutex
+	attempts int
+	started  chan struct{}
 }
 
 func (r *blockingRetryReader) GetBalance(
-    ctx context.Context,
-    chainID uint64,
-    address string,
+	ctx context.Context,
+	chainID uint64,
+	address string,
 ) (*big.Int, error) {
-    r.mu.Lock()
-    r.attempts++
-    r.mu.Unlock()
+	r.mu.Lock()
+	r.attempts++
+	r.mu.Unlock()
 
-    close(r.started)
+	close(r.started)
 
-    <-ctx.Done()
-    return nil, ctx.Err()
+	<-ctx.Done()
+	return nil, ctx.Err()
 }
 
 func (r *blockingRetryReader) count() int {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    return r.attempts
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.attempts
 }
-
 
 func (r *retryReader) GetBalance(
 	ctx context.Context,
@@ -191,47 +189,46 @@ func TestPermanentErrorIsNotRetried(t *testing.T) {
 	}
 }
 
-
 func TestRetryStopsWhenContextExpires(t *testing.T) {
-    started := make(chan struct{})
+	started := make(chan struct{})
 
-    reader := &blockingRetryReader{
-        started: started,
-    }
+	reader := &blockingRetryReader{
+		started: started,
+	}
 
-    service, err := NewWithProviderLimits(
-        reader,
-        time.Minute,
-        100*time.Millisecond,
-        100,
-        10,
-        20,
-        100,
-    )
-    if err != nil {
-        t.Fatal(err)
-    }
+	service, err := NewWithProviderLimits(
+		reader,
+		time.Minute,
+		100*time.Millisecond,
+		100,
+		10,
+		20,
+		100,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-    address := "0x0000000000000000000000000000000000000004"
+	address := "0x0000000000000000000000000000000000000004"
 
-    _, err = service.GetBalance(
-        context.Background(),
-        11155111,
-        address,
-    )
+	_, err = service.GetBalance(
+		context.Background(),
+		11155111,
+		address,
+	)
 
-    if !errors.Is(err, context.DeadlineExceeded) {
-        t.Fatalf("expected deadline exceeded, got %v", err)
-    }
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
 
-    select {
-    case <-started:
-        // The provider was called before the deadline.
-    default:
-        t.Fatal("expected at least one upstream attempt")
-    }
+	select {
+	case <-started:
+		// The provider was called before the deadline.
+	default:
+		t.Fatal("expected at least one upstream attempt")
+	}
 
-    if got := reader.count(); got != 1 {
-        t.Fatalf("attempts = %d, want 1", got)
-    }
+	if got := reader.count(); got != 1 {
+		t.Fatalf("attempts = %d, want 1", got)
+	}
 }
