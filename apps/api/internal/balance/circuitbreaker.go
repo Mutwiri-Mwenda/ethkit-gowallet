@@ -133,18 +133,17 @@ func (b *CircuitBreaker) complete(
 		return
 	}
 
-	
-if !Retryable(err) {
-	return
-}
+	if !Retryable(err) {
+		return
+	}
 
-b.failures++
-b.generation++
+	b.failures++
+	b.generation++
 
-if b.failures >= b.threshold {
-	b.state = CircuitOpen
-	b.openedAt = time.Now()
-}
+	if b.failures >= b.threshold {
+		b.state = CircuitOpen
+		b.openedAt = time.Now()
+	}
 
 }
 
